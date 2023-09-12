@@ -1,0 +1,99 @@
+- hosts: almalinux
+  become: true
+  become_user: root
+  tasks:
+  # - name: Copy ansible facts to a file.
+  #   copy:
+  #     content: "{{ ansible_facts }}"
+  #     dest: ansible_facts_details.json
+  - name: Disable SELinux
+    ansible.posix.selinux:
+      state: disabled
+
+  - name: Upgrade all packages on servers
+    dnf:
+      name: '*'
+      state: latest
+
+  - name: Uninstall old versions
+    dnf:
+      name:
+        - docker-client
+        - docker-client-latest
+        - docker-common
+        - docker-latest
+        - docker-latest-logrotate
+        - docker-logrotate
+        - docker-engine
+      state: absent
+
+  # - name: Set up docker repository
+  #   shell: |
+  #     dnf install -y yum-utils
+  #     yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  #   args:
+  #     warn: no
+
+  - name: Install the latest version of Docker Engine and containerd
+    dnf:
+      name:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+    notify: Start and enable docker
+
+  - name: Add the current user to the docker group
+    user:
+      name: leviet
+      groups: docker
+      append: yes
+  
+  - name: Stop docker
+    systemd:
+      name: docker
+      state: stopped
+      enabled: no
+  
+  - name: Copy docker file
+    copy:
+      src: ./files/docker
+      dest: /etc/sysconfig/docker
+      owner: root
+      group: root
+      mode: '0644'
+  
+  - name: Create folder docker.service.d
+    file:
+      path: /etc/systemd/system/docker.service.d
+      state: directory
+      owner: root
+      group: root
+      mode: '0755'
+  
+  - name: Copy docker-custom.conf
+    copy:
+      src: ./files/docker-custom.conf
+      dest: /etc/systemd/system/docker.service.d/docker-custom.conf
+      owner: root
+      group: root
+      mode: '0644'
+
+  handlers:
+    - name: Start and enable docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+    
+    - name: Stop docker
+      systemd:
+        name: docker
+        state: stopped
+        enabled: no
+    
+    - name: Reload daemon and restart docker
+      systemd:
+        name: docker
+        daemon_reload: yes
+        enabled: no
+        state: started

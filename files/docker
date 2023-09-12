@@ -1,0 +1,5 @@
+# Modify these options if you want to change the way the docker daemon runs
+OPTIONS="--log-driver=journald \
+  --live-restore \
+  --default-ulimit nofile=1024:1024 \
+"
